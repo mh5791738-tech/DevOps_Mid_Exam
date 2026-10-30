@@ -89,8 +89,15 @@ HTML = """
 
 
 def valid_url(url):
-    return False
+    from urllib.parse import urlparse
 
+    parsed = urlparse(url)
+
+    return (
+        parsed.scheme in ("http", "https")
+        and bool(parsed.netloc)
+        and "." in parsed.netloc
+    )
 
 @app.route("/", methods=["GET", "POST"])
 def home():
