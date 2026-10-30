@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
@@ -30,13 +29,121 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Automated Tests
+        id: tests
         run: |
           python -m pytest -v --junitxml=test-results.xml
 
-      - name: Save Test Results
+      - name: Generate JSON Test Report
+        if: always()
+        env:
+          TEST_STEP_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          import xml.etree.ElementTree as ET
+          from datetime import datetime, timezone
+
+          tests = []
+          outcome = os.environ.get("TEST_STEP_OUTCOME", "unknown")
+
+          try:
+              root = ET.parse("test-results.xml").getroot()
+
+              for case in root.iter("testcase"):
+                  failure = case.find("failure")
+                  error = case.find("error")
+                  skipped = case.find("skipped")
+
+                  problem = failure if failure is not None else error
+
+                  if problem is not None:
+                      result = "failed"
+                      message = (
+                          problem.get("message")
+                          or (problem.text or "").strip()
+                      )
+                  elif skipped is not None:
+                      result = "skipped"
+                      message = (skipped.text or "").strip()
+                  else:
+                      result = "passed"
+                      message = ""
+
+                  tests.append({
+                      "name": (
+                          case.get("classname", "")
+                          + "::"
+                          + case.get("name", "unnamed test")
+                      ),
+                      "result": result,
+                      "failure_message": message
+                  })
+
+          except Exception as exc:
+              tests.append({
+                  "name": "pytest execution",
+                  "result": "failed" if outcome == "failure" else "unknown",
+                  "failure_message": (
+                      "JUnit report could not be read: " + str(exc)
+                  )
+              })
+
+          total = len(tests)
+          passed = sum(t["result"] == "passed" for t in tests)
+          failed = sum(t["result"] == "failed" for t in tests)
+          skipped = sum(t["result"] == "skipped" for t in tests)
+
+          if failed > 0 or outcome == "failure":
+              status = "failed"
+          elif total > 0 and outcome == "success":
+              status = "passed"
+          else:
+              status = "unknown"
+
+          report = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "branch": (
+                  os.environ.get("GITHUB_HEAD_REF")
+                  or os.environ["GITHUB_REF_NAME"]
+              ),
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "timestamp": datetime.now(timezone.utc).isoformat(),
+              "tests": tests,
+              "total": total,
+              "passed": passed,
+              "failed": failed,
+              "skipped": skipped,
+              "status": status
+          }
+
+          with open("test-report.json", "w", encoding="utf-8") as file:
+              json.dump(report, file, indent=4)
+
+          print(json.dumps(report, indent=4))
+          PY
+
+      - name: Send Report to Local Computer
+        if: always()
+        env:
+          REPORT_RECEIVER_URL: ${{ secrets.REPORT_RECEIVER_URL }}
+          REPORT_RECEIVER_TOKEN: ${{ secrets.REPORT_RECEIVER_TOKEN }}
+        run: |
+          curl --silent --show-error --fail-with-body \
+            --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $REPORT_RECEIVER_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @test-report.json \
+            "$REPORT_RECEIVER_URL"
+
+      - name: Save Test Report Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: test-results.xml
-          if-no-files-found: ignore
+          name: test-reports
+          path: |
+            test-results.xml
+            test-report.json
+          if-no-files-found: warn
