@@ -11,9 +11,11 @@ on:
 
 jobs:
   test:
-    name: Run Automated Tests    
+    name: Run Automated Tests
+
     outputs:
       tests_outcome: ${{ steps.tests.outcome }}
+
     runs-on: ubuntu-latest
 
     steps:
@@ -149,6 +151,17 @@ jobs:
             test-results.xml
             test-report.json
           if-no-files-found: warn
+
+      - name: Email Test Report
+        if: always()
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+        run: python send_email.py
+
   deploy:
     name: Deploy to GitHub Pages
     needs: test
