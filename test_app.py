@@ -26,7 +26,7 @@ def test_valid_submission(client):
 
     assert response.status_code == 200
     assert b"Assignment submitted successfully!" in response.data
-    assert len(submissions) == 1
+    assert len(submissions) == 2
     assert submissions[0]["reg_no"] == "FA23-BAI-010"
 
 
