@@ -89,15 +89,7 @@ HTML = """
 
 
 def valid_url(url):
-    try:
-        parsed = urlparse(url)
-        return (
-            parsed.scheme in ("http", "https")
-            and bool(parsed.hostname)
-            and "." in parsed.hostname
-        )
-    except ValueError:
-        return False
+    return False
 
 
 @app.route("/", methods=["GET", "POST"])
