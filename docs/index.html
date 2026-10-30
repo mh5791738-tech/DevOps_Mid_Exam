@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Submission Portal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            padding: 30px;
+        }
+        .container {
+            max-width: 650px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 15px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            padding: 12px;
+            border: none;
+            cursor: pointer;
+        }
+        .notice {
+            background: #eff6ff;
+            padding: 12px;
+            border-radius: 6px;
+            color: #1e40af;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .submission { border-bottom: 1px solid #ddd; padding: 10px 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Assignment Submission Portal</h1>
+
+    <p class="notice">
+        GitHub Pages Static Demo: submissions appear in this browser session only.
+        Use the local Flask application for actual backend submission.
+    </p>
+
+    <p id="message"></p>
+
+    <form id="submissionForm">
+        <label>Student Name</label>
+        <input name="name" required>
+
+        <label>Registration Number</label>
+        <input name="reg_no" required>
+
+        <label>Assignment Title</label>
+        <input name="title" required>
+
+        <label>Submission URL</label>
+        <input name="url" type="url" required>
+
+        <button type="submit">Submit Assignment</button>
+    </form>
+
+    <hr>
+    <h2>Submitted Assignments</h2>
+    <div id="submissions">No submissions yet.</div>
+</div>
+
+<script>
+    const form = document.getElementById("submissionForm");
+    const message = document.getElementById("message");
+    const submissions = document.getElementById("submissions");
+
+    form.addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        const data = new FormData(form);
+        const item = {
+            name: data.get("name").trim(),
+            reg_no: data.get("reg_no").trim(),
+            title: data.get("title").trim(),
+            url: data.get("url").trim()
+        };
+
+        if (!item.name || !item.reg_no || !item.title || !item.url) {
+            message.textContent = "All fields are required.";
+            message.className = "error";
+            return;
+        }
+
+        try {
+            const parsed = new URL(item.url);
+            if (!["http:", "https:"].includes(parsed.protocol)) {
+                throw new Error("Invalid URL");
+            }
+        } catch {
+            message.textContent = "Invalid submission URL.";
+            message.className = "error";
+            return;
+        }
+
+        const entry = document.createElement("div");
+        entry.className = "submission";
+
+        for (const [label, value] of [
+            ["Name", item.name],
+            ["Registration", item.reg_no],
+            ["Assignment", item.title]
+        ]) {
+            const p = document.createElement("p");
+            const b = document.createElement("b");
+            b.textContent = label + ": ";
+            p.appendChild(b);
+            p.appendChild(document.createTextNode(value));
+            entry.appendChild(p);
+        }
+
+        const link = document.createElement("a");
+        link.href = item.url;
+        link.textContent = item.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+
+        const urlLine = document.createElement("p");
+        urlLine.append("URL: ", link);
+        entry.appendChild(urlLine);
+
+        if (submissions.textContent === "No submissions yet.") {
+            submissions.textContent = "";
+        }
+
+        submissions.prepend(entry);
+        message.textContent = "Assignment submitted successfully!";
+        message.className = "success";
+        form.reset();
+    });
+</script>
+</body>
+</html>
